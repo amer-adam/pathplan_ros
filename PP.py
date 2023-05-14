@@ -3,7 +3,8 @@
 from math import cos, sin, atan2, radians
 from numpy import array, dot
 import rospy
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, Bool
+from time import sleep
 
 
 class PathPlanner:
@@ -41,76 +42,91 @@ class PathPlanner:
     lock_count = 0.0
     lock_calc = 0.0
     lock_final = 0.0
-    # pid 
+    # pid
     outz = 0.0
     setpointMsg = Float64()
     stateMsg = Float64()
+    pidEnableMsg = Bool()
 
     def __init__(self) -> None:
         self.pp_start = False
-        rospy.init_node('RNS', anonymous=True)
+        rospy.init_node('PP')
         rospy.Subscriber("control_effort", Float64,
                          self.control_effort_callback)
         self.statePub = rospy.Publisher("state", Float64, queue_size=10)
         self.setpointPub = rospy.Publisher("setpoint", Float64, queue_size=10)
+        self.pidEnablePub = rospy.Publisher("pid_enable", Bool, queue_size=10)
+
+        dur = rospy.Duration(1)
+        rospy.sleep(dur)
+
+        # while self.pidEnablePub.get_num_connections() < 1: 
+        #     pass
+        self.pidEnableMsg.data = False
+        self.pidEnablePub.publish(self.pidEnableMsg)
+        
 
         # self.reset()
 
     def control_effort_callback(self, controlEffort):
-        self.outz = controlEffort.data * 5.5
+        self.outz = controlEffort.data *5.5
 
     def set_xyz(self, x, y, z):
         self.pos_x = x
         self.pos_y = y
         self.yaw = z
 
-    # def reset(self):
-    #     self.pos_x = 0.0
-    #     self.pos_y = 0.0
-    #     self.yaw = 0.0
-    #     self.prev_x = 0.0
-    #     self.prev_y = 0.0
-    #     self.prev_real_x = 0.0
-    #     self.prev_real_y = 0.0
-    #     self.del_pos_x = 0.0
-    #     self.del_pos_y = 0.0
-    #     self.yaw_constant = 0.0
-    #     self.prev_yaw = 0.0
-    #     self.real_x = 0.0
-    #     self.real_y = 0.0
-    #     self.real_z = 0.0
-    #     self.real_z_rad = 0.0
-    #     self.target_vel = []
-    #     self.target_x = []
-    #     self.target_y = []
-    #     self.target_z = []
-    #     self.target_accurate = []
-    #     self.error_x = 0.0
-    #     self.error_y = 0.0
-    #     self.error_z = 0.0
-    #     self.rvx = 0.0
-    #     self.rvy = 0.0
-    #     self.point_count = 0
-    #     self.points_number = 0.0
-    #     # point lock calculations
-    #     self.lock_enable = False
-    #     self.lock = 0.0
-    #     self.lock_count = 0.0
-    #     self.lock_calc = 0.0
-    #     self.lock_final = 0.0
+    def reset(self):
+        self.pos_x = 0.0
+        self.pos_y = 0.0
+        self.yaw = 0.0
+        self.prev_x = 0.0
+        self.prev_y = 0.0
+        self.prev_real_x = 0.0
+        self.prev_real_y = 0.0
+        self.del_pos_x = 0.0
+        self.del_pos_y = 0.0
+        self.yaw_constant = 0.0
+        self.prev_yaw = 0.0
+        self.real_x = 0.0
+        self.real_y = 0.0
+        self.real_z = 0.0
+        self.real_z_rad = 0.0
+        self.target_vel = []
+        self.target_x = []
+        self.target_y = []
+        self.target_z = []
+        self.target_accurate = []
+        self.error_x = 0.0
+        self.error_y = 0.0
+        self.error_z = 0.0
+        self.rvx = 0.0
+        self.rvy = 0.0
+        self.point_count = 0
+        self.points_number = 0.0
+        # point lock calculations
+        self.lock_enable = False
+        self.lock = 0.0
+        self.lock_count = 0.0
+        self.lock_calc = 0.0
+        self.lock_final = 0.0
 
     def stop(self):
+        self.pidEnableMsg.data = False
+        self.pidEnablePub.publish(self.pidEnableMsg)
         self.pp_start = False
-        # self.reset()
+        self.reset()
 
     def lock_stop(self):
-        if (self.target_accurate):
+        if (self.target_accurate[self.point_count]):
             if (self.lock_enable):
                 self.stop()
         else:
             self.stop()
 
     def start(self, points, pointsNumber):
+        self.pidEnableMsg.data = True
+        self.pidEnablePub.publish(self.pidEnableMsg)
         for point in range(0, pointsNumber):
             self.target_vel.append(points[point][0])
             self.target_x.append(points[point][1])
@@ -118,6 +134,7 @@ class PathPlanner:
             self.target_z.append(points[point][3])
             self.target_accurate.append(points[point][4])
         self.points_number = pointsNumber
+
         self.pp_start = True
 
     def calculate(self, tol_x, tol_y, tol_z):
@@ -131,7 +148,7 @@ class PathPlanner:
             if self.check_tolerance(tol_x, tol_y, tol_z):
                 if (self.point_count == self.points_number - 1):
                     self.lock_stop()
-                    return 0, 0
+                    return 0, 0, 0
                 else:
                     self.point_count += 1
                     self.calculate_errors()
@@ -216,7 +233,7 @@ class PathPlanner:
                 self.lock_count = 0.0
 
     def PID(self):
-        self.setpointMsg.data = self.target_z[self.point_count]
-        self.stateMsg.data = self.real_z
+        self.setpointMsg.data = self.target_z[self.point_count] / 90
+        self.stateMsg.data = self.real_z / 90
         self.setpointPub.publish(self.setpointMsg)
         self.statePub.publish(self.stateMsg)
