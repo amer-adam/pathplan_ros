@@ -57,7 +57,7 @@ class PathPlanner:
         # self.reset()
 
     def control_effort_callback(self, controlEffort):
-        self.outz = controlEffort.data
+        self.outz = controlEffort.data * 5.5
 
     def set_xyz(self, x, y, z):
         self.pos_x = x
