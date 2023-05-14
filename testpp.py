@@ -35,10 +35,10 @@ while planner.pp_start:
         x += velocity[0] * sampleTime
         y += velocity[1] * sampleTime
         z += velocity[2] * sampleTime
-        v1 = 0.707107 * (velocity[1] + velocity[0]) + velocity[2]*5.5
-        v2 = 0.707107 * (velocity[1] - velocity[0]) - velocity[2]*5.5
-        v3 = 0.707107 * (velocity[1] - velocity[0]) + velocity[2]*5.5
-        v4 = 0.707107 * (velocity[1] + velocity[0]) - velocity[2]*5.5
+        v1 = 0.707107 * (velocity[1] + velocity[0]) + velocity[2]
+        v2 = 0.707107 * (velocity[1] - velocity[0]) - velocity[2]
+        v3 = 0.707107 * (velocity[1] - velocity[0]) + velocity[2]
+        v4 = 0.707107 * (velocity[1] + velocity[0]) - velocity[2]
 
         print("Velocity: %6.2f %6.2f %6.2f %6.2f | Error: %6.2f %6.2f %6.2f | outz: %6.2f " % (v1, v2, v3, v4, planner.error_x, planner.error_y, planner.error_z, planner.outz))
 
